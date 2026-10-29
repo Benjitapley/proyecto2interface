@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INFO1128 · Datos ambientales</title>
+<style>
+  :root { color-scheme: light; font: 16px system-ui, sans-serif; color: #16243b; background: #edf2f8; }
+  body { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+  .tag { color: #3565a0; letter-spacing: .1em; font-size: .8rem; font-weight: 700; }
+  h1 { margin: 8px 0; font-size: clamp(1.8rem,4vw,2.6rem); }
+  p { line-height: 1.6; color: #44546e; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 22px 0; }
+  select, input, button { font: inherit; padding: 8px 12px; border: 1px solid #bccade; border-radius: 8px; }
+  input { width: 80px; }
+  button { background: #204ed8; color: white; cursor: pointer; }
+  a { color: #204ed8; }
+  .card { background: white; border: 1px solid #dbe3ef; padding: 16px; border-radius: 16px; margin: 16px 0; }
+  img { display: block; width: 100%; height: auto; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; white-space: nowrap; }
+  th, td { padding: 10px; border-bottom: 1px solid #e0e7f0; text-align: left; }
+  .muted { font-size: .85rem; color: #51627a; }
+</style>
+<body>
+  <div class="tag">INTERFACES GRÁFICAS · INFO1128</div>
+  <h1>Registro ambiental · UMA {{ uma }}</h1>
+  <p>Datos simulados recibidos desde Lazarus y almacenados en SQLite con fecha y hora UTC.</p>
+  <form method="get">
+    <label for="uma">Estación</label>
+    <select id="uma" name="uma">
+      {% for n in range(1,6) %}<option value="{{ n }}" {% if n == uma %}selected{% endif %}>UMA {{ n }}</option>{% endfor %}
+    </select>
+    <label for="limite">Últimas muestras</label>
+    <input id="limite" name="limite" type="number" min="1" max="500" value="{{ limite }}">
+    <button type="submit">Consultar</button>
+    <a href="{{ url_for('listar', uma=uma, limite=limite) }}">Ver consulta JSON</a>
+    <a href="{{ url_for('listar') }}">Ver todas las UMA en JSON</a>
+  </form>
+  <div class="card">
+    <img id="grafica" src="{{ url_for('grafica', uma=uma, limite=limite) }}" alt="Series PM1.0, PM2.5, PM10 y seis conteos de partículas">
+  </div>
+  <p class="muted">La imagen se actualiza cada 5 segundos. La tabla se actualiza al recargar la página.
+    Registros de esta UMA al cargar: <strong>{{ total }}</strong>. Sólo se guardan las tramas de la UMA seleccionada en Lazarus cuando activas el envío.</p>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Registro</th><th>Fecha y hora (UTC)</th><th>PM1.0</th><th>PM2.5</th><th>PM10</th><th>°C</th><th>HR %</th></tr></thead>
+      <tbody>
+        {% for fila in filas %}<tr>
+          <td><a href="{{ url_for('obtener', registro_id=fila.registro_id) }}">{{ fila.registro_id }}</a></td>
+          <td>{{ fila.fecha_hora }}</td><td>{{ fila.mp01 }}</td><td>{{ fila.mp02 }}</td><td>{{ fila.mp03 }}</td><td>{{ fila.te }}</td><td>{{ fila.hr }}</td>
+        </tr>{% else %}<tr><td colspan="7">Sin datos aún. Abre Lazarus, conecta el COM y activa «Enviar UMA a Flask».</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    const grafica = document.getElementById('grafica');
+    const base = grafica.getAttribute('src');
+    setInterval(() => { grafica.src = base + '&t=' + Date.now(); }, 5000);
+  </script>
+</body>
+</html>
