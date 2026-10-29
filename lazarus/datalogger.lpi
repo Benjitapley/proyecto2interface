@@ -6,7 +6,6 @@
       <Title Value="INFO1128 - DataLogger"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
-      <ActiveWindowIndexAtStart Value="-1"/>
     </General>
     <BuildModes Active="Default">
       <Item Name="Default" Default="True"/>
@@ -33,7 +32,10 @@
       <Unit>
         <Filename Value="datalogger.lpr"/>
         <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <CursorPos X="19" Y="15"/>
         <UsageCount Value="20"/>
+        <Loaded Value="True"/>
       </Unit>
       <Unit>
         <Filename Value="principal.pas"/>
@@ -46,7 +48,12 @@
         <UsageCount Value="20"/>
       </Unit>
     </Units>
-    <JumpHistory HistoryIndex="-1"/>
+    <JumpHistory>
+      <Position>
+        <Filename Value="datalogger.lpr"/>
+        <Caret Line="4" Column="61"/>
+      </Position>
+    </JumpHistory>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>

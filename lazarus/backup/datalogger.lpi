@@ -3,44 +3,63 @@
   <ProjectOptions>
     <Version Value="12"/>
     <General>
-      <MainUnit Value="0"/>
       <Title Value="INFO1128 - DataLogger"/>
       <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
+      <ActiveWindowIndexAtStart Value="-1"/>
     </General>
-    <BuildModes Count="1">
-      <Item1 Name="Default" Default="True"/>
+    <BuildModes Active="Default">
+      <Item Name="Default" Default="True"/>
     </BuildModes>
-    <RequiredPackages Count="3">
-      <Item1>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+    <RunParams>
+      <FormatVersion Value="2"/>
+    </RunParams>
+    <RequiredPackages>
+      <Item>
         <PackageName Value="LazSerialPort"/>
         <DefaultFilename Value="vendor/TLazSerial/LazSerialPort.lpk" Prefer="True"/>
-      </Item1>
-      <Item2><PackageName Value="TAChartLazarusPkg"/></Item2>
-      <Item3><PackageName Value="LCL"/></Item3>
+      </Item>
+      <Item>
+        <PackageName Value="TAChartLazarusPkg"/>
+      </Item>
+      <Item>
+        <PackageName Value="LCL"/>
+      </Item>
     </RequiredPackages>
-    <Units Count="3">
-      <Unit0>
+    <Units>
+      <Unit>
         <Filename Value="datalogger.lpr"/>
         <IsPartOfProject Value="True"/>
-      </Unit0>
-      <Unit1>
+        <UsageCount Value="20"/>
+      </Unit>
+      <Unit>
         <Filename Value="principal.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="principal"/>
-      </Unit1>
-      <Unit2>
+        <UsageCount Value="20"/>
+      </Unit>
+      <Unit>
         <Filename Value="protocolo_uma.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="protocolo_uma"/>
-      </Unit2>
+        <UsageCount Value="20"/>
+      </Unit>
     </Units>
+    <JumpHistory HistoryIndex="-1"/>
   </ProjectOptions>
   <CompilerOptions>
     <Version Value="11"/>
-    <Target><Filename Value="datalogger"/></Target>
+    <Target>
+      <Filename Value="datalogger"/>
+    </Target>
     <SearchPaths>
       <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf3"/>
+      </Debugging>
+    </Linking>
   </CompilerOptions>
 </CONFIG>
