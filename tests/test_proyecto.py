@@ -1,9 +1,11 @@
 """Pruebas de contrato, persistencia y gráfica sin necesidad de un COM virtual."""
 
+from contextlib import closing
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 import random
+import re
 import sqlite3
 import tempfile
 import unittest
@@ -55,6 +57,7 @@ class ProyectoTests(unittest.TestCase):
         fila = respuesta.get_json()
         self.assertEqual(fila["id"], 1)
         self.assertEqual(fila["registro_id"], 1)
+        self.assertEqual({campo: fila[campo] for campo in CAMPOS}, self.muestra)
         self.assertIsNotNone(datetime.fromisoformat(fila["fecha_hora"]).tzinfo)
         recuperada = self.client.get(respuesta.headers["Location"])
         self.assertEqual(recuperada.get_json(), fila)
@@ -63,7 +66,9 @@ class ProyectoTests(unittest.TestCase):
         self.client.post("/data", json=self.muestra)
         otro_cliente = create_app(self.database).test_client()
         self.assertEqual(otro_cliente.get("/api/registros").get_json()["total"], 1)
-        with sqlite3.connect(self.database) as conexion:
+        # El contexto de sqlite3 confirma la transacción, pero NO cierra la
+        # conexión. En Windows el archivo queda bloqueado si no la cerramos.
+        with closing(sqlite3.connect(self.database)) as conexion:
             fila = conexion.execute("SELECT id, mp01, fecha_hora FROM mediciones").fetchone()
         self.assertEqual(fila[:2], (1, self.muestra["mp01"]))
         self.assertIsInstance(fila[2], str)
@@ -128,6 +133,34 @@ class ProyectoTests(unittest.TestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.assertIn(b"/grafica.png?uma=1", respuesta.data)
         self.assertIn(b"/api/registros/1", respuesta.data)
+        tabla = respuesta.get_data(as_text=True).split('<tbody id="registros">')[1].split('</tbody>')[0]
+        self.assertEqual(len(re.findall(r"<td(?:\s|>)", tabla)), 14)
+        for campo in CAMPOS:
+            self.assertIn(f">{self.muestra[campo]}</td>", tabla)
+        for ruta in ("/static/dashboard.css", "/static/dashboard.js"):
+            with self.client.get(ruta) as recurso:
+                self.assertEqual(recurso.status_code, 200)
+
+    def test_panel_muestra_ultimas_12_sin_recortar_la_api(self):
+        for numero in range(15):
+            self.client.post("/data", json={**self.muestra, "mp01": numero})
+        pagina = self.client.get("/").get_data(as_text=True)
+        tabla = pagina.split('<tbody id="registros">')[1].split('</tbody>')[0]
+        enlaces = re.findall(r'href="/api/registros/(\d+)"', tabla)
+        self.assertEqual([int(numero) for numero in enlaces], list(range(4, 16)))
+        self.assertRegex(pagina, r'<input(?=[^>]*\bname="limite")(?=[^>]*\bvalue="12")[^>]*>')
+        self.assertEqual(self.client.get("/api/registros").get_json()["devueltos"], 15)
+        self.assertEqual(self.client.get("/data").get_json(),
+                         self.client.get("/api/registros").get_json())
+
+    def test_panel_sin_datos_o_con_otra_uma(self):
+        self.client.post("/data", json=self.muestra)
+        pagina = self.client.get("/?uma=5").get_data(as_text=True)
+        tabla = pagina.split('<tbody id="registros">')[1].split('</tbody>')[0]
+        self.assertIn('colspan="14"', tabla)
+        self.assertIn('Sin datos de esta UMA', tabla)
+        self.assertNotIn('/api/registros/1', tabla)
+        self.assertIn('id="total">0</p>', pagina)
 
 
 if __name__ == "__main__":

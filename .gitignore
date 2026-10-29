@@ -1,0 +1,20 @@
+# Entorno local de Python y archivos generados.
+.venv/
+__pycache__/
+*.py[cod]
+/tmp/
+
+# Las mediciones pertenecen a cada ejecución, no al código fuente.
+/servidor/datos/*.sqlite3
+/servidor/datos/*.sqlite3-*
+
+# Productos de compilación y estado local de Lazarus.
+/lazarus/lib/
+/lazarus/datalogger.exe
+/lazarus/datalogger
+*.lps
+*.ppu
+*.o
+*.or
+*.compiled
+*.bak

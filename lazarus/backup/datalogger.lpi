@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="12"/>
+    <General>
+      <MainUnit Value="0"/>
+      <Title Value="INFO1128 - DataLogger"/>
+      <UseAppBundle Value="False"/>
+      <ResourceType Value="res"/>
+    </General>
+    <BuildModes Count="1">
+      <Item1 Name="Default" Default="True"/>
+    </BuildModes>
+    <RequiredPackages Count="3">
+      <Item1>
+        <PackageName Value="LazSerialPort"/>
+        <DefaultFilename Value="vendor/TLazSerial/LazSerialPort.lpk" Prefer="True"/>
+      </Item1>
+      <Item2><PackageName Value="TAChartLazarusPkg"/></Item2>
+      <Item3><PackageName Value="LCL"/></Item3>
+    </RequiredPackages>
+    <Units Count="3">
+      <Unit0>
+        <Filename Value="datalogger.lpr"/>
+        <IsPartOfProject Value="True"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="principal.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="principal"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="protocolo_uma.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="protocolo_uma"/>
+      </Unit2>
+    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <Target><Filename Value="datalogger"/></Target>
+    <SearchPaths>
+      <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+  </CompilerOptions>
+</CONFIG>

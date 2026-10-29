@@ -1,9 +1,19 @@
 # Proyecto 2 INFO1128: guía de instalación y desarrollo
 
-Esta base acompaña la pauta de Interfaces Gráficas. Está pensada para Windows
+Este proyecto implementa la pauta de Interfaces Gráficas. Está pensado para Windows
 de 64 bits y Python 3.13. Usa los mismos 12 campos, las cinco UMA y la URL
 `http://127.0.0.1:7070/data` del tutorial. Revisa cada etapa y entiende su
 función antes de la defensa.
+
+**Para abrir la ventana de escritorio, haz doble clic en
+`ABRIR_ESCRITORIO.cmd`.** Se abrirá el DataLogger hecho en Lazarus, que muestra
+las tres curvas PM, las seis barras, temperatura y humedad al recibir datos
+por el COM. `http://127.0.0.1:7070/` es el panel web adicional. El IDE Lazarus
+sirve para editar y compilar; el programa que ejecutas es `datalogger.exe`.
+
+Lee [EXPLICACION_DEL_PROYECTO.md](EXPLICACION_DEL_PROYECTO.md) para entender el
+código paso a paso y preparar la defensa. Las comprobaciones realizadas y la
+prueba manual pendiente están en [VERIFICACION.md](VERIFICACION.md).
 
 ## 1. Qué tienes que entregar
 
@@ -49,7 +59,7 @@ Ejemplo de una vuelta completa:
 |---|---|---|
 | Lazarus, versión estable para Windows 64 bits, con Free Pascal | Compilar y ejecutar el DataLogger | https://www.lazarus-ide.org/index.php?page=download |
 | Paquete TAChartLazarusPkg | `TChart`, `TLineSeries`, `TBarSeries` | Incluido en la distribución completa de Lazarus; activar si falta |
-| Paquete LazSerialPort | Componente `TLazSerial` para leer el COM | https://github.com/JurassicPork/TLazSerial |
+| Paquete LazSerialPort | Componente `TLazSerial` para leer el COM | Fuentes incluidas en `lazarus/vendor/TLazSerial` |
 | Python 3.13 de 64 bits | Simulador y servidor | https://www.python.org/downloads/windows/ |
 | VSPE para Windows x64 | Crear el puerto virtual | https://eterlogic.com/Products.VSPE_Download.html |
 | Flask, pySerial y Matplotlib | API, serial y gráfica | Se instalan juntos con el archivo `requirements.txt` |
@@ -64,27 +74,28 @@ de configuración y un máximo de cinco dispositivos. Esta práctica usa un solo
 Connector que puedes crear manualmente. Las condiciones vigentes están en:
 https://eterlogic.com/Products.VSPE_License.html
 
-### 3.1. Instalar Lazarus y sus componentes
+### 3.1. Compilar con Lazarus y sus componentes
 
-1. Descarga el instalador estable de Lazarus para Windows de 64 bits con FPC.
-   No elijas una versión RC si puedes usar la estable.
-2. Instala el IDE completo y ábrelo una vez. Mantén el compilador y las fuentes
-   que trae el instalador.
-3. Revisa si existe la pestaña de componentes `Chart`/`TAChart` y el componente
-   `TChart`. Si falta, abre **Paquete / Instalar-desinstalar paquetes**, busca
-   `TAChartLazarusPkg`, instálalo y acepta reconstruir el IDE. También puedes
-   abrir `components\tachart\tachartlazaruspkg.lpk` dentro de la carpeta de
-   Lazarus y usar **Compilar**, luego **Usar / Instalar**.
-4. En el repositorio de TLazSerial, pulsa **Code / Download ZIP**.
-5. Extrae la carpeta a una ubicación permanente, por ejemplo
-   `C:\lazarus_componentes\TLazSerial`. No la borres después de instalar.
-6. En Lazarus abre **Paquete / Abrir archivo de paquete (.lpk)**.
-7. Abre `LazSerialPort.lpk`, pulsa **Compilar** y luego **Usar / Instalar**.
-   Acepta recompilar y reiniciar Lazarus.
-8. Debe aparecer la pestaña `LazSerial` con `TLazSerial`.
+Usa una instalación completa de Lazarus para Windows de 64 bits con Free Pascal.
+En este computador ya está instalada en `C:\lazarus`. Desde la carpeta principal:
 
-Los nombres de los menús pueden aparecer en inglés: Package, Open Package
-File, Compile, Use, Install, Install/Uninstall Packages.
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\lazarus\compilar.ps1
+```
+
+El script genera `lazarus\datalogger.exe` con FPC, las unidades de Lazarus y las
+fuentes TLazSerial incluidas. No requiere descargar ese componente ni instalarlo
+globalmente en el IDE. Si Lazarus está en otra carpeta, agrega
+`-LazarusDir 'C:\ruta\de\lazarus'`. La opción de PowerShell se aplica sólo al
+proceso de compilación; no cambia la política permanente del equipo.
+
+Para trabajar desde el IDE, abre primero
+`lazarus\vendor\TLazSerial\LazSerialPort.lpk` con **Paquete / Abrir archivo de
+paquete**, compílalo y abre después `lazarus\datalogger.lpi`. El proyecto ya
+declara `LCL`, `TAChartLazarusPkg` y `LazSerialPort` como dependencias. TAChart
+viene con la distribución completa de Lazarus. Si quieres usar TLazSerial en
+el diseñador de otros proyectos, puedes instalar su paquete en la paleta;
+la ventana de este proyecto se construye por código y no necesita ese paso.
 
 `TFPHTTPClient` y `TJSONObject` se usan desde código, mediante las unidades
 `fphttpclient` y `fpjson` incluidas en Free Pascal. No tienes que arrastrarlos
@@ -108,7 +119,14 @@ Abre PowerShell en esa carpeta y ejecuta:
 py -3.13 --version
 ```
 
-Si ya aparece Python 3.13, úsalo. Si no está, instala una versión 3.13.x de
+Si ya aparece Python 3.13, úsalo. Si `py` no está disponible y Python ya está
+instalado, puedes crear el entorno con su ruta; por ejemplo, en este equipo:
+
+```powershell
+& 'C:\Users\benja\AppData\Local\Programs\Python\Python313\python.exe' -m venv .venv
+```
+
+Si todavía no tienes Python, instala una versión 3.13.x de
 64 bits desde Python.org con el lanzador `py` y pip. Después vuelve a abrir
 PowerShell.
 
@@ -175,6 +193,8 @@ respuestas deben indicar **HTTP 201** y un `registro_id`. Prueba estas URLs:
 La API devuelve como máximo 100 filas por defecto. `limite` permite pedir
 entre 1 y 500; `total` informa cuántas mediciones coinciden con el filtro.
 La lista contiene las últimas N filas, ordenadas de antigua a nueva.
+El panel HTML y la gráfica muestran doce por defecto; la tabla incluye todos
+los campos y se actualiza junto con los indicadores y la imagen.
 
 La prueba manual sólo verifica servidor, base y navegador. La conexión serial
 y Lazarus se comprueban en las etapas siguientes.
@@ -207,6 +227,9 @@ Los dos extremos deben usar **9600 baudios, 8 bits de datos, sin paridad,
 1 bit de parada y sin control de flujo**: abreviado `9600-8N1`.
 
 ## 6. Abrir y ejecutar el DataLogger en Lazarus
+
+Si compilaste con `compilar.ps1`, abre `lazarus\datalogger.exe` y continúa desde
+el paso 5. Para compilar desde el IDE:
 
 1. Abre **Proyecto / Abrir proyecto**.
 2. Selecciona `lazarus\datalogger.lpi` de este paquete.
@@ -328,9 +351,14 @@ Los números son enteros, no cadenas entre comillas. Lazarus usa
 | `lazarus/datalogger.lpr` | Inicia la aplicación de escritorio |
 | `lazarus/datalogger.lpi` | Declara el proyecto y los paquetes de Lazarus |
 | `lazarus/principal.pas` | Construye la ventana, recibe, grafica y envía JSON |
+| `lazarus/protocolo_uma.pas` | Valida las tramas, extrae líneas y mantiene las doce muestras |
+| `lazarus/compilar.ps1` | Compila para Windows x64 sin cambiar la configuración del IDE |
+| `lazarus/pruebas_cliente.lpr` | Comprueba buffer, validación y desplazamiento del historial |
 | `servidor/esquema.sql` | Define la tabla SQLite y el índice por UMA |
 | `servidor/app.py` | Implementa POST, consultas GET y la gráfica PNG |
-| `servidor/templates/index.html` | Muestra la imagen y los accesos a las consultas |
+| `servidor/templates/index.html` | Panel con filtros, indicadores, gráfica y todos los campos |
+| `servidor/static/dashboard.js` | Actualiza los datos cada cinco segundos y comunica errores |
+| `servidor/static/dashboard.css` | Estilos del panel y adaptación a pantallas pequeñas |
 | `prueba_api.py` | Inserta cinco registros para probar el servidor antes del COM |
 | `tests/test_proyecto.py` | Pruebas automáticas con una base temporal |
 
@@ -350,8 +378,10 @@ Los números son enteros, no cadenas entre comillas. Lazarus usa
 - `Conectar`: abre o cierra el dispositivo indicado por el usuario.
 - `Recibir`: agrega el fragmento recibido a `FBuffer`. Busca el salto de
   línea `#10`, extrae una trama completa y conserva el fragmento pendiente.
-- `ProcesarTrama`: exige 12 enteros válidos y comprueba el identificador.
-- `Graficar`: agrega un valor a cada serie y actualiza las seis barras.
+- `ProcesarTrama`: usa `DecodificarTrama` para exigir doce enteros decimales
+  válidos y comprueba el identificador de la UMA.
+- `Graficar`: usa `AgregarMuestra` para mantener doce muestras por serie y
+  actualiza las seis barras. El estado se guarda en `THistorialPM`.
 - `EnviarAFlask`: crea `TJSONObject`, configura el encabezado HTTP y hace POST.
 - Los bloques `try/finally` liberan listas, streams, JSON y cliente HTTP.
 
@@ -391,7 +421,9 @@ reiniciar. Puedes ver, por ejemplo, el sufijo `+00:00`.
 3. Se dibujan tres líneas de concentración y seis barras de la última trama.
 4. `FigureCanvasAgg` convierte la figura a PNG dentro de `BytesIO`.
 5. Flask responde con tipo `image/png`.
-6. El HTML muestra esa URL mediante `<img>` y la vuelve a pedir cada 5 segundos.
+6. El HTML muestra esa URL mediante `<img>`. JavaScript vuelve a consultar la
+   API y el PNG cada cinco segundos, actualiza tabla e indicadores y conserva
+   la última consulta si hay un fallo de conexión.
 
 Los datos de esa gráfica provienen de SQLite. Esto demuestra que el sistema
 puede consultar mediciones almacenadas y no sólo mostrar lo que llega al COM.
@@ -462,7 +494,7 @@ y lo que aún debe comprobarse en Windows.
 | Error HTTP o conexión rechazada | Arranca Flask; comprueba URL, puerto 7070 y vuelve a marcar el envío |
 | Datos locales pero API vacía | Marca la casilla de envío y consulta la misma UMA que está elegida en Lazarus |
 | La casilla se desmarcó sola | Hubo un fallo HTTP. Revisa el registro inferior y restablece Flask antes de marcarla |
-| La tabla del navegador parece detenida | La imagen se actualiza sola; para la tabla y su total recarga la página |
+| La tabla del navegador parece detenida | Revisa el mensaje de actualización, que Flask siga abierto y que JavaScript esté habilitado |
 | El puerto 7070 está ocupado | Cierra el servidor duplicado o cambia el puerto en Python y en la URL de Lazarus |
 | El gráfico de otra UMA está vacío | Selecciona esa UMA en Lazarus y guarda algunas tramas de ella |
 

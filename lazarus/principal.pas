@@ -6,11 +6,10 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, Graphics,
-  TAGraph, TASeries, TATypes, TAChartUtils, LazSerial, fphttpclient, fpjson;
+  TAGraph, TASeries, TATypes, TAChartUtils, LazSerial, fphttpclient, fpjson,
+  protocolo_uma;
 
 type
-  TTrama = array[0..11] of Integer;
-
   TPrincipal = class(TForm)
   private
     FSerial: TLazSerial;
@@ -23,9 +22,9 @@ type
     FChart, FHist: TChart;
     FSeries: array[0..2] of TLineSeries;
     FBarras: TBarSeries;
-    FValores: array[0..2, 0..11] of Integer;
-    FNumMuestras: Integer;
+    FHistorial: THistorialPM;
     FBuffer: string;
+    FDescartarHastaLF: Boolean;
     procedure Conectar(Sender: TObject);
     procedure CambiarUma(Sender: TObject);
     procedure Recibir(Sender: TObject);
@@ -44,10 +43,6 @@ var
 implementation
 
 const
-  Campos: array[0..11] of string = (
-    'id', 'mp01', 'mp02', 'mp03', 'hi01', 'hi02', 'hi03',
-    'hi04', 'hi05', 'hi06', 'te', 'hr'
-  );
   Categorias: array[0..5] of string = ('0.3', '0.5', '1.0', '2.5', '5.0', '10');
   Colores: array[0..5] of TColor = (clBlue, clTeal, clPurple, clOlive, clRed, clGray);
   NombresPM: array[0..2] of string = ('PM1.0', 'PM2.5', 'PM10');
@@ -65,7 +60,7 @@ begin
   Position := poScreenCenter;
   Width := 1180;
   Height := 760;
-  Constraints.MinWidth := 1050;
+  Constraints.MinWidth := 1140;
   Constraints.MinHeight := 650;
 
   Superior := TPanel.Create(Self);
@@ -214,8 +209,9 @@ begin
   // Recibimos trozos arbitrarios y reconstruimos líneas nosotros mismos.
   FSerial.RcvLineCRLF := False;
   FSerial.OnRxData := @Recibir;
-  FNumMuestras := 0;
+  ReiniciarHistorial(FHistorial);
   FBuffer := '';
+  FDescartarHastaLF := False;
   Registrar('CSV de 12 enteros + salto de linea. Sólo se grafica y envia la UMA seleccionada.');
 end;
 
@@ -249,6 +245,7 @@ begin
     else
     begin
       FBuffer := '';
+      FDescartarHastaLF := False;
       FSerial.Device := Trim(FCom.Text);
       FSerial.Open;
       FBoton.Caption := 'Desconectar';
@@ -270,7 +267,7 @@ var
   I: Integer;
 begin
   // Evitamos mezclar el historial de dos estaciones distintas.
-  FNumMuestras := 0;
+  ReiniciarHistorial(FHistorial);
   for I := 0 to 2 do FSeries[I].Clear;
   FBarras.Clear;
   FTemp.Caption := 'Temp: -- C';
@@ -281,23 +278,29 @@ end;
 
 procedure TPrincipal.Recibir(Sender: TObject);
 var
+  Linea, Fragmento: string;
   PosFin: SizeInt;
-  Linea: string;
 begin
   try
-    FBuffer := FBuffer + FSerial.ReadData;
-    // Un evento puede traer media trama, una trama o varias juntas.
-    PosFin := Pos(#10, FBuffer);
-    while PosFin > 0 do
+    Fragmento := FSerial.ReadData;
+    // Si una trama sin LF superó el límite, descartamos también su resto.
+    if FDescartarHastaLF then
     begin
-      Linea := Trim(Copy(FBuffer, 1, PosFin - 1));
-      Delete(FBuffer, 1, PosFin);
-      if Linea <> '' then ProcesarTrama(Linea);
-      PosFin := Pos(#10, FBuffer);
+      PosFin := Pos(#10, Fragmento);
+      if PosFin = 0 then Exit;
+      Delete(Fragmento, 1, PosFin);
+      FDescartarHastaLF := False;
     end;
-    if Length(FBuffer) > 65536 then
+    FBuffer := FBuffer + Fragmento;
+    // Un evento puede traer media trama, una trama o varias juntas.
+    while ExtraerLinea(FBuffer, Linea) do
+    begin
+      if Linea <> '' then ProcesarTrama(Linea);
+    end;
+    if Length(FBuffer) > MAX_LONGITUD_TRAMA then
     begin
       FBuffer := '';
+      FDescartarHastaLF := True;
       Registrar('Buffer reiniciado: faltan los saltos de linea del simulador.');
     end;
   except
@@ -307,34 +310,14 @@ end;
 
 procedure TPrincipal.ProcesarTrama(const Linea: string);
 var
-  Partes: TStringList;
   Datos: TTrama;
-  I: Integer;
+  Error: string;
 begin
-  Partes := TStringList.Create;
-  try
-    Partes.StrictDelimiter := True;
-    Partes.Delimiter := ',';
-    Partes.DelimitedText := Linea;
-    if Partes.Count <> 12 then
-    begin
-      Registrar('Trama descartada: se necesitan 12 campos. ' + Linea);
-      Exit;
-    end;
-    for I := 0 to 11 do
-      if not TryStrToInt(Trim(Partes[I]), Datos[I]) then
-      begin
-        Registrar('Trama descartada: hay un campo que no es entero.');
-        Exit;
-      end;
-  finally
-    Partes.Free;
+  if not DecodificarTrama(Linea, Datos, Error) then
+  begin
+    Registrar('Trama descartada: ' + Error);
+    Exit;
   end;
-  if (Datos[0] < 1) or (Datos[0] > 5) then Exit;
-  for I := 1 to 9 do
-    if (Datos[I] < 0) or (Datos[I] > 10000000) then Exit;
-  if (Datos[10] < -80) or (Datos[10] > 80) or
-     (Datos[11] < 0) or (Datos[11] > 100) then Exit;
   if Datos[0] <> FUma.ItemIndex + 1 then Exit;
 
   FTemp.Caption := 'Temp: ' + IntToStr(Datos[10]) + ' C';
@@ -358,25 +341,14 @@ end;
 
 procedure TPrincipal.Graficar(const Datos: TTrama);
 var
-  I, J, Ultimo: Integer;
+  I, J: Integer;
 begin
-  if FNumMuestras < 12 then
-  begin
-    Ultimo := FNumMuestras;
-    Inc(FNumMuestras);
-  end
-  else
-  begin
-    // Al llegar la muestra 13, eliminamos la más antigua de la ventana.
-    for I := 0 to 2 do
-      for J := 0 to 10 do FValores[I, J] := FValores[I, J + 1];
-    Ultimo := 11;
-  end;
+  AgregarMuestra(FHistorial, Datos);
   for I := 0 to 2 do
   begin
-    FValores[I, Ultimo] := Datos[I + 1];
     FSeries[I].Clear;
-    for J := 0 to FNumMuestras - 1 do FSeries[I].AddXY(J + 1, FValores[I, J]);
+    for J := 0 to FHistorial.Cantidad - 1 do
+      FSeries[I].AddXY(J + 1, FHistorial.Valores[I, J]);
   end;
   FBarras.Clear;
   for I := 0 to 5 do FBarras.AddXY(I, Datos[I + 4], Categorias[I], Colores[I]);

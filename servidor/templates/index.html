@@ -1,61 +1,82 @@
 <!doctype html>
 <html lang="es">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>INFO1128 · Datos ambientales</title>
-<style>
-  :root { color-scheme: light; font: 16px system-ui, sans-serif; color: #16243b; background: #edf2f8; }
-  body { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
-  .tag { color: #3565a0; letter-spacing: .1em; font-size: .8rem; font-weight: 700; }
-  h1 { margin: 8px 0; font-size: clamp(1.8rem,4vw,2.6rem); }
-  p { line-height: 1.6; color: #44546e; }
-  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 22px 0; }
-  select, input, button { font: inherit; padding: 8px 12px; border: 1px solid #bccade; border-radius: 8px; }
-  input { width: 80px; }
-  button { background: #204ed8; color: white; cursor: pointer; }
-  a { color: #204ed8; }
-  .card { background: white; border: 1px solid #dbe3ef; padding: 16px; border-radius: 16px; margin: 16px 0; }
-  img { display: block; width: 100%; height: auto; }
-  .table-wrap { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: .9rem; white-space: nowrap; }
-  th, td { padding: 10px; border-bottom: 1px solid #e0e7f0; text-align: left; }
-  .muted { font-size: .85rem; color: #51627a; }
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UMA {{ uma }} · Registro ambiental</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <script src="{{ url_for('static', filename='dashboard.js') }}" defer></script>
+</head>
 <body>
-  <div class="tag">INTERFACES GRÁFICAS · INFO1128</div>
-  <h1>Registro ambiental · UMA {{ uma }}</h1>
-  <p>Datos simulados recibidos desde Lazarus y almacenados en SQLite con fecha y hora UTC.</p>
-  <form method="get">
-    <label for="uma">Estación</label>
-    <select id="uma" name="uma">
-      {% for n in range(1,6) %}<option value="{{ n }}" {% if n == uma %}selected{% endif %}>UMA {{ n }}</option>{% endfor %}
-    </select>
-    <label for="limite">Últimas muestras</label>
-    <input id="limite" name="limite" type="number" min="1" max="500" value="{{ limite }}">
-    <button type="submit">Consultar</button>
-    <a href="{{ url_for('listar', uma=uma, limite=limite) }}">Ver consulta JSON</a>
-    <a href="{{ url_for('listar') }}">Ver todas las UMA en JSON</a>
-  </form>
-  <div class="card">
-    <img id="grafica" src="{{ url_for('grafica', uma=uma, limite=limite) }}" alt="Series PM1.0, PM2.5, PM10 y seis conteos de partículas">
-  </div>
-  <p class="muted">La imagen se actualiza cada 5 segundos. La tabla se actualiza al recargar la página.
-    Registros de esta UMA al cargar: <strong>{{ total }}</strong>. Sólo se guardan las tramas de la UMA seleccionada en Lazarus cuando activas el envío.</p>
-  <div class="card table-wrap">
-    <table>
-      <thead><tr><th>Registro</th><th>Fecha y hora (UTC)</th><th>PM1.0</th><th>PM2.5</th><th>PM10</th><th>°C</th><th>HR %</th></tr></thead>
-      <tbody>
-        {% for fila in filas %}<tr>
-          <td><a href="{{ url_for('obtener', registro_id=fila.registro_id) }}">{{ fila.registro_id }}</a></td>
-          <td>{{ fila.fecha_hora }}</td><td>{{ fila.mp01 }}</td><td>{{ fila.mp02 }}</td><td>{{ fila.mp03 }}</td><td>{{ fila.te }}</td><td>{{ fila.hr }}</td>
-        </tr>{% else %}<tr><td colspan="7">Sin datos aún. Abre Lazarus, conecta el COM y activa «Enviar UMA a Flask».</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <script>
-    const grafica = document.getElementById('grafica');
-    const base = grafica.getAttribute('src');
-    setInterval(() => { grafica.src = base + '&t=' + Date.now(); }, 5000);
-  </script>
+  <main id="panel" data-api="{{ url_for('listar', uma=uma, limite=limite) }}"
+        data-registro-url="{{ url_for('obtener', registro_id=0) }}">
+    <header class="page-header">
+      <div>
+        <div class="eyebrow">INFO1128 / INTERFACES GRÁFICAS</div>
+        <h1>Registro ambiental <span>UMA {{ uma }}</span></h1>
+        <p>Material particulado, temperatura y humedad. Mediciones simuladas almacenadas en SQLite.</p>
+      </div>
+      <a class="api-link" href="{{ url_for('estado') }}">Estado de la API ↗</a>
+    </header>
+
+    <section class="card controls" aria-label="Filtros de consulta">
+      <form method="get">
+        <div class="field">
+          <label for="uma">Unidad ambiental</label>
+          <select id="uma" name="uma">
+            {% for n in range(1,6) %}<option value="{{ n }}" {% if n == uma %}selected{% endif %}>UMA {{ n }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="limite">Últimas muestras</label>
+          <input id="limite" name="limite" type="number" required min="1" max="500" value="{{ limite }}">
+        </div>
+        <button type="submit">Consultar</button>
+      </form>
+      <div class="query-links">
+        <a href="{{ url_for('listar', uma=uma, limite=limite) }}">Consulta en JSON ↗</a>
+        <a href="{{ url_for('listar') }}">Todas las UMA en JSON ↗</a>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Resumen de la UMA seleccionada">
+      <article class="card metric"><h2>Registros guardados</h2><p id="total">{{ total }}</p><span>Total histórico de UMA {{ uma }}</span></article>
+      <article class="card metric"><h2>Temperatura</h2><p><span id="temperatura">{{ ultima.te if ultima else '—' }}</span> <small>°C</small></p><span>Última medición</span></article>
+      <article class="card metric"><h2>Humedad relativa</h2><p><span id="humedad">{{ ultima.hr if ultima else '—' }}</span> <small>%</small></p><span>Última medición</span></article>
+      <article class="card metric"><h2>PM2.5</h2><p><span id="pm25">{{ ultima.mp02 if ultima else '—' }}</span> <small>µg/m³</small></p><span>Concentración simulada</span></article>
+    </section>
+
+    <section class="card chart-card" aria-labelledby="titulo-grafica">
+      <div class="section-heading"><div><h2 id="titulo-grafica">Evolución y conteo de partículas</h2><p>Últimas {{ limite }} muestras · tres series PM y seis diámetros</p></div><span class="badge">MATPLOTLIB</span></div>
+      <img id="grafica" src="{{ url_for('grafica', uma=uma, limite=limite) }}"
+           alt="Series PM1.0, PM2.5 y PM10 en el tiempo, y seis barras del conteo de partículas de la última muestra">
+      <div class="refresh-row"><p id="estado-actualizacion" role="status">Actualización automática cada 5 segundos.</p><a id="abrir-grafica" href="{{ url_for('grafica', uma=uma, limite=limite) }}">Abrir imagen PNG ↗</a></div>
+    </section>
+
+    <section class="card records-card" aria-labelledby="titulo-tabla">
+      <div class="section-heading"><div><h2 id="titulo-tabla">Mediciones almacenadas</h2><p><span id="devueltos">{{ filas|length }}</span> registros, de antiguo a nuevo. Haz clic en un registro para consultar su JSON.</p></div></div>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla de mediciones; desplázate horizontalmente para ver los conteos">
+        <table>
+          <caption>PM en µg/m³; conteos simulados por umbral de diámetro en µm. Fecha y hora de recepción en UTC.</caption>
+          <thead>
+            <tr><th scope="col">Registro</th><th scope="col">UMA</th><th scope="col">Fecha y hora (UTC)</th><th scope="col">PM1.0</th><th scope="col">PM2.5</th><th scope="col">PM10</th><th scope="col">0.3 µm</th><th scope="col">0.5 µm</th><th scope="col">1.0 µm</th><th scope="col">2.5 µm</th><th scope="col">5.0 µm</th><th scope="col">10 µm</th><th scope="col">°C</th><th scope="col">HR %</th></tr>
+          </thead>
+          <tbody id="registros">
+            {% for fila in filas %}<tr>
+              <td><a href="{{ url_for('obtener', registro_id=fila.registro_id) }}">#{{ fila.registro_id }}</a></td>
+              <td>{{ fila.id }}</td><td>{{ fila.fecha_hora }}</td>
+              {% for campo in ['mp01', 'mp02', 'mp03', 'hi01', 'hi02', 'hi03', 'hi04', 'hi05', 'hi06', 'te', 'hr'] %}<td>{{ fila[campo] }}</td>{% endfor %}
+            </tr>{% else %}<tr><td colspan="14" class="empty">Sin datos de esta UMA. Conecta el COM en Lazarus y activa «Enviar UMA seleccionada a Flask».</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p>La selección de este panel consulta la base de datos. Para recibir y guardar otra UMA, selecciónala también en Lazarus y activa el envío.</p>
+      <p>Simulador Python → puerto serial → Lazarus → HTTP / JSON → Flask → SQLite</p>
+      <noscript><p>JavaScript está desactivado. Pulsa «Consultar» para actualizar los datos y la gráfica.</p></noscript>
+    </footer>
+  </main>
 </body>
 </html>

@@ -1,7 +1,7 @@
 """Ejecutar desde la carpeta principal: python -m servidor.app"""
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 import sqlite3
@@ -9,7 +9,7 @@ import threading
 
 from flask import Flask, jsonify, render_template, request, send_file, url_for
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import AutoDateLocator, DateFormatter
 from matplotlib.figure import Figure
 
 from protocolo import CAMPOS, validar
@@ -39,11 +39,11 @@ def create_app(database_path=None):
     with conectar() as conexion:
         conexion.executescript((BASE / "esquema.sql").read_text(encoding="utf-8"))
 
-    def opciones(default_uma=None):
+    def opciones(default_uma=None, default_limite=100):
         try:
             raw = request.args.get("uma")
             uma = int(raw) if raw is not None else default_uma
-            limite = int(request.args.get("limite", "100"))
+            limite = int(request.args.get("limite", str(default_limite)))
         except ValueError:
             raise ValueError("uma y limite deben ser enteros.") from None
         if uma is not None and not 1 <= uma <= 5:
@@ -112,13 +112,16 @@ def create_app(database_path=None):
 
     @app.get("/")
     def inicio():
-        uma, limite = opciones(default_uma=1)
+        uma, limite = opciones(default_uma=1, default_limite=12)
         total, filas = consultar(uma, limite)
-        return render_template("index.html", uma=uma, limite=limite, total=total, filas=filas[-8:])
+        return render_template(
+            "index.html", uma=uma, limite=limite, total=total, filas=filas,
+            ultima=filas[-1] if filas else None,
+        )
 
     @app.get("/grafica.png")
     def grafica():
-        uma, limite = opciones(default_uma=1)
+        uma, limite = opciones(default_uma=1, default_limite=12)
         _, filas = consultar(uma, limite)
         # Figure + Agg permite generar PNG sin abrir ventanas de escritorio.
         # Matplotlib no garantiza seguridad entre hilos: serializamos el dibujo.
@@ -133,24 +136,38 @@ def create_app(database_path=None):
                     ("mp03", "PM10", "#e11d48"),
                 ):
                     ax1.plot(tiempos, [fila[campo] for fila in filas], ".-", label=nombre, color=color)
+                ax1.xaxis.set_major_locator(AutoDateLocator(minticks=3, maxticks=6))
                 ax1.xaxis.set_major_formatter(DateFormatter("%H:%M:%S", tz=timezone.utc))
+                # Una muestra aislada no debe producir un eje de varios días.
+                if tiempos[0] == tiempos[-1]:
+                    ax1.set_xlim(tiempos[0] - timedelta(seconds=1), tiempos[0] + timedelta(seconds=1))
+                    ax1.set_xticks([tiempos[0]])
                 ax1.legend(loc="upper left", ncol=3)
                 ultima = filas[-1]
-                ax2.bar(
+                barras = ax2.bar(
                     ["0.3", "0.5", "1.0", "2.5", "5.0", "10"],
                     [ultima[f"hi{i:02d}"] for i in range(1, 7)],
                     color=["#2563eb", "#0d9488", "#8b5cf6", "#f59e0b", "#e11d48", "#475569"],
                 )
+                ax2.bar_label(barras, padding=3, fontsize=8)
+                ax2.margins(y=0.25)
                 ax2.set_title(f"Última muestra · {ultima['te']} °C · HR {ultima['hr']} %", fontsize=10)
             else:
                 ax1.text(0.5, 0.5, "Todavía no hay datos guardados para esta UMA.",
                          ha="center", va="center", transform=ax1.transAxes)
+                ax1.set_xticks([])
+                ax1.set_yticks([])
+                ax2.set_xticks(range(6), ["0.3", "0.5", "1.0", "2.5", "5.0", "10"])
+                ax2.set_yticks([])
+                ax2.text(0.5, 0.5, "Sin conteos recibidos.", ha="center", va="center", transform=ax2.transAxes)
             ax1.set_title(f"UMA {uma} · Material particulado simulado", loc="left", fontweight="bold")
             ax1.set_ylabel("Concentración (µg/m³)")
+            ax1.set_ylim(bottom=0)
             ax1.set_xlabel("Hora de recepción (UTC)")
             ax1.grid(alpha=0.2)
             ax2.set_xlabel("Umbral de diámetro de partícula (µm)")
             ax2.set_ylabel("Conteo simulado")
+            ax2.set_ylim(bottom=0)
             imagen = BytesIO()
             FigureCanvasAgg(figura).print_png(imagen)
             imagen.seek(0)
